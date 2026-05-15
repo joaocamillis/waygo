@@ -18,7 +18,7 @@ export default function RideOptionCard({ provider, price, etaMinutes, durationMi
         <Text style={styles.provider}>{provider.displayName}</Text>
         <Text style={styles.meta}>{durationMinutes} min · ETA {etaMinutes} min</Text>
       </View>
-      <Text style={styles.price}>${price.toFixed(2)}</Text>
+      <Text style={styles.price}>R$ {price.toFixed(2)}</Text>
     </View>
   );
 }
