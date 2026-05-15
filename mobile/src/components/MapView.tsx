@@ -3,6 +3,7 @@ import { StyleSheet } from 'react-native';
 import MapViewLibrary from 'react-native-maps';
 import { Marker, Polyline } from 'react-native-maps';
 import { Location } from '../types/location';
+import { isValidLocation } from '../utils/locationUtils';
 
 type Props = {
   origin: Location | null;
@@ -45,36 +46,29 @@ export default function MapView({ origin, destination, geometry }: Props) {
   if (!region) return null;
 
   const routeCoordinates = useMemo(() => {
-    if (!geometry || geometry.length === 0) {
-      if (origin && destination) {
-        return [
-          { latitude: origin.latitude, longitude: origin.longitude },
-          { latitude: destination.latitude, longitude: destination.longitude },
-        ];
-      }
-      return [];
-    }
-    return geometry;
-  }, [geometry, origin, destination]);
+    if (!geometry || geometry.length === 0) return [];
+    const pts = geometry.filter((p) => isValidLocation(p));
+    return pts;
+  }, [geometry]);
 
   return (
     <MapViewLibrary style={styles.map} region={region} scrollEnabled={true}>
-      {origin && (
+      {origin && isValidLocation(origin) && (
         <Marker
-          coordinate={{ latitude: origin.latitude, longitude: origin.longitude }}
+          coordinate={{ latitude: Number(origin.latitude), longitude: Number(origin.longitude) }}
           title="Origem"
           pinColor="#00b894"
         />
       )}
-      {destination && (
+      {destination && isValidLocation(destination) && (
         <Marker
-          coordinate={{ latitude: destination.latitude, longitude: destination.longitude }}
+          coordinate={{ latitude: Number(destination.latitude), longitude: Number(destination.longitude) }}
           title="Destino"
           pinColor="#ff5a5f"
         />
       )}
       {routeCoordinates.length > 1 && (
-        <Polyline coordinates={routeCoordinates} strokeColor="#007bff" strokeWidth={3} />
+        <Polyline coordinates={routeCoordinates.map(p => ({ latitude: Number(p.latitude), longitude: Number(p.longitude) }))} strokeColor="#007bff" strokeWidth={3} />
       )}
     </MapViewLibrary>
   );

@@ -8,7 +8,10 @@ export declare const reverseGeocode: (lat: number, lng: number) => Promise<{
 export declare const routing: (originLat: number, originLng: number, destinationLat: number, destinationLng: number) => Promise<{
     distanceKm: number;
     durationMin: number;
-    geometry: any;
+    coordinates: {
+        latitude: number;
+        longitude: number;
+    }[] | null;
 } | null>;
 declare const _default: {
     autocomplete: (input: string, lat?: number, lng?: number, lang?: string, limit?: number) => Promise<any>;
@@ -21,7 +24,10 @@ declare const _default: {
     routing: (originLat: number, originLng: number, destinationLat: number, destinationLng: number) => Promise<{
         distanceKm: number;
         durationMin: number;
-        geometry: any;
+        coordinates: {
+            latitude: number;
+            longitude: number;
+        }[] | null;
     } | null>;
 };
 export default _default;

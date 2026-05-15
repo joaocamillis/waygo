@@ -72,11 +72,46 @@ export const routing = async (originLat: number, originLng: number, destinationL
     if (routes.length === 0) return null;
 
     const route = routes[0];
-    const distanceKm = (route.distance || 0) / 1000;
-    const durationMin = Math.round((route.time || 0) / 60);
-    const geometry = route.legs?.[0]?.steps?.map((s: any) => s.points || []).flat() || null;
+    const distanceKm = (Number(route.distance) || 0) / 1000;
+    const durationMin = Math.round((Number(route.time) || 0) / 60);
 
-    return { distanceKm: Number(distanceKm.toFixed(2)), durationMin, geometry };
+    // Try multiple locations for geometry
+    let coordinates: Array<{ latitude: number; longitude: number }> | null = null;
+
+    // Geoapify may return geometry.coordinates as [lon, lat] pairs
+    if (route.geometry && Array.isArray(route.geometry.coordinates)) {
+      coordinates = route.geometry.coordinates.map((pt: any) => {
+        const lon = Number(pt[0]);
+        const lat = Number(pt[1]);
+        return { latitude: lat, longitude: lon };
+      });
+    }
+
+    // Fallback: legs -> steps -> geometry
+    if (!coordinates && Array.isArray(route.legs)) {
+      const pts: Array<{ latitude: number; longitude: number }> = [];
+      for (const leg of route.legs) {
+        if (Array.isArray(leg.steps)) {
+          for (const step of leg.steps) {
+            if (step.geometry && Array.isArray(step.geometry.coordinates)) {
+              for (const c of step.geometry.coordinates) {
+                const lon = Number(c[0]);
+                const lat = Number(c[1]);
+                pts.push({ latitude: lat, longitude: lon });
+              }
+            }
+          }
+        }
+      }
+      if (pts.length > 0) coordinates = pts;
+    }
+
+    // Ensure coordinates are numbers
+    if (coordinates) {
+      coordinates = coordinates.filter(c => Number.isFinite(c.latitude) && Number.isFinite(c.longitude));
+    }
+
+    return { distanceKm: Number(distanceKm.toFixed(2)), durationMin, coordinates };
   } catch (error: any) {
     throw new Error(`Geoapify routing failed: ${error.message}`);
   }

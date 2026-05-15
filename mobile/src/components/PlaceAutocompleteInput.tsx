@@ -1,15 +1,8 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { View, TextInput, StyleSheet, FlatList, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { api } from '../services/api';
-
-export interface PlaceSuggestion {
-  placeId: string;
-  displayName: string;
-  address: string;
-  latitude: number;
-  longitude: number;
-  source: 'history' | 'geoapify';
-}
+import { Keyboard } from 'react-native';
+import { PlaceSuggestion } from '../types/place';
 
 type Props = {
   placeholder: string;
@@ -48,7 +41,31 @@ export default function PlaceAutocompleteInput({
       }
 
       const response = await api.get('/places/autocomplete', { params });
-      setSuggestions(response.data.suggestions || []);
+      const raw: any[] = response.data.suggestions || [];
+      // sanitize and deduplicate
+      const seen = new Set<string>();
+      const items = raw.map((it, idx) => {
+        const lat = Number(it.latitude ?? it.lat ?? it.lat ?? NaN);
+        const lon = Number(it.longitude ?? it.lon ?? it.lon ?? NaN);
+        const displayName = String(it.displayName ?? it.display_name ?? it.address ?? it.formatted ?? '');
+        const source = it.source ?? it.source ?? 'geoapify';
+        const placeId = String(it.placeId ?? it.place_id ?? idx);
+        return {
+          placeId,
+          displayName,
+          address: displayName,
+          latitude: Number.isFinite(lat) ? lat : NaN,
+          longitude: Number.isFinite(lon) ? lon : NaN,
+          source,
+        } as PlaceSuggestion;
+      }).filter(s => {
+        const key = `${s.source}::${s.displayName}::${s.latitude}::${s.longitude}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+
+      setSuggestions(items.slice(0, 8));
       setShowSuggestions(true);
     } catch (error) {
       setSuggestions([]);
@@ -71,9 +88,10 @@ export default function PlaceAutocompleteInput({
 
   const handleSelectSuggestion = (place: PlaceSuggestion) => {
     onChangeText(place.displayName);
-    onSelectPlace(place);
+    onSelectPlace({ ...place, latitude: Number(place.latitude), longitude: Number(place.longitude) });
     setSuggestions([]);
     setShowSuggestions(false);
+    Keyboard.dismiss();
   };
 
   return (
@@ -93,9 +111,9 @@ export default function PlaceAutocompleteInput({
         <View style={styles.suggestionsContainer}>
           <FlatList
             data={suggestions}
-            keyExtractor={(item) => item.placeId}
-            scrollEnabled={false}
-            renderItem={({ item }) => (
+            keyExtractor={(item, index) => `${item.source}-${item.placeId}-${index}`}
+            keyboardShouldPersistTaps="handled"
+            renderItem={({ item, index }) => (
               <TouchableOpacity
                 style={styles.suggestionItem}
                 onPress={() => handleSelectSuggestion(item)}

@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, Button, StyleSheet, Alert, ActivityIndicator, Text } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import PlaceAutocompleteInput, { PlaceSuggestion } from '../components/PlaceAutocompleteInput';
+import PlaceAutocompleteInput from '../components/PlaceAutocompleteInput';
+import { PlaceSuggestion } from '../types/place';
+import { isValidLocation } from '../utils/locationUtils';
 import MapView from '../components/MapView';
 import { Location } from '../types/location';
 import locationService from '../services/locationService';
@@ -65,7 +67,7 @@ export default function HomeScreen() {
     setLoading(true);
     try {
       // Fetch real route from Geoapify
-      const route = await routeService.getRoute(origin, destination);
+      const route: any = await routeService.getRoute(origin, destination);
       if (!route) {
         Alert.alert('Erro', 'Não foi possível calcular a rota.');
         setLoading(false);
@@ -73,6 +75,14 @@ export default function HomeScreen() {
       }
 
       setRouteInfo(route);
+      // set geometry if available (array of {latitude, longitude})
+      if (Array.isArray(route.geometry)) {
+        setGeometry(route.geometry.map((p: any) => ({ latitude: Number(p.latitude), longitude: Number(p.longitude) })));
+      } else if (Array.isArray((route as any).coordinates)) {
+        setGeometry((route as any).coordinates.map((p: any) => ({ latitude: Number(p.latitude), longitude: Number(p.longitude) })));
+      } else {
+        setGeometry(undefined);
+      }
 
       // Save search to backend
       await createSearch({
@@ -106,21 +116,28 @@ export default function HomeScreen() {
         <PlaceAutocompleteInput
           placeholder="Origem (localização atual)"
           value={originText}
-          onChangeText={setOriginText}
+          onChangeText={(t) => {
+            setOriginText(t);
+            setOrigin(null);
+          }}
           onSelectPlace={(place) => {
-            setOrigin(place);
+            setOrigin({ latitude: Number(place.latitude), longitude: Number(place.longitude), address: place.address });
             setOriginText(place.displayName);
           }}
           lat={origin?.latitude}
           lng={origin?.longitude}
         />
+        <Text style={{ fontSize: 12, color: '#666', marginTop: 6 }}>Confira se o número está correto.</Text>
 
         <PlaceAutocompleteInput
           placeholder="Destino"
           value={destinationText}
-          onChangeText={setDestinationText}
+          onChangeText={(t) => {
+            setDestinationText(t);
+            setDestination(null);
+          }}
           onSelectPlace={(place) => {
-            setDestination(place);
+            setDestination({ latitude: Number(place.latitude), longitude: Number(place.longitude), address: place.address });
             setDestinationText(place.displayName);
           }}
           lat={origin?.latitude}
@@ -135,11 +152,16 @@ export default function HomeScreen() {
           </View>
         )}
 
-        <Button
-          title={loading ? 'Processando...' : 'Comparar corridas'}
-          onPress={handleCompare}
-          disabled={loading || !origin || !destination}
-        />
+          <Button
+            title={loading ? 'Processando...' : 'Comparar corridas'}
+            onPress={handleCompare}
+            disabled={
+              loading || !isValidLocation(origin) || !isValidLocation(destination)
+            }
+          />
+          {(!isValidLocation(origin) || !isValidLocation(destination)) && (
+            <Text style={{ color: '#b00020', marginTop: 8 }}>Escolha um endereço da lista para continuar.</Text>
+          )}
       </View>
 
       {loadingLocation ? (

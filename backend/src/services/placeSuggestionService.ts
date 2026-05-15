@@ -54,8 +54,8 @@ export const searchPlaces = async (
         placeId: `geoapify_${result.place_id || i}`,
         displayName: result.address_line1 || result.formatted,
         address: result.formatted || result.address_line1,
-        latitude: result.lat,
-        longitude: result.lon,
+        latitude: Number(result.lat),
+        longitude: Number(result.lon),
         source: 'geoapify' as const,
       }))
     );

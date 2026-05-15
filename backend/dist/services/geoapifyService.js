@@ -59,7 +59,6 @@ const reverseGeocode = async (lat, lng) => {
 };
 exports.reverseGeocode = reverseGeocode;
 const routing = async (originLat, originLng, destinationLat, destinationLng) => {
-    var _a, _b, _c;
     if (!API_KEY)
         throw new Error('GEOAPIFY_API_KEY not set');
     const params = {
@@ -74,10 +73,42 @@ const routing = async (originLat, originLng, destinationLat, destinationLng) => 
         if (routes.length === 0)
             return null;
         const route = routes[0];
-        const distanceKm = (route.distance || 0) / 1000;
-        const durationMin = Math.round((route.time || 0) / 60);
-        const geometry = ((_c = (_b = (_a = route.legs) === null || _a === void 0 ? void 0 : _a[0]) === null || _b === void 0 ? void 0 : _b.steps) === null || _c === void 0 ? void 0 : _c.map((s) => s.points || []).flat()) || null;
-        return { distanceKm: Number(distanceKm.toFixed(2)), durationMin, geometry };
+        const distanceKm = (Number(route.distance) || 0) / 1000;
+        const durationMin = Math.round((Number(route.time) || 0) / 60);
+        // Try multiple locations for geometry
+        let coordinates = null;
+        // Geoapify may return geometry.coordinates as [lon, lat] pairs
+        if (route.geometry && Array.isArray(route.geometry.coordinates)) {
+            coordinates = route.geometry.coordinates.map((pt) => {
+                const lon = Number(pt[0]);
+                const lat = Number(pt[1]);
+                return { latitude: lat, longitude: lon };
+            });
+        }
+        // Fallback: legs -> steps -> geometry
+        if (!coordinates && Array.isArray(route.legs)) {
+            const pts = [];
+            for (const leg of route.legs) {
+                if (Array.isArray(leg.steps)) {
+                    for (const step of leg.steps) {
+                        if (step.geometry && Array.isArray(step.geometry.coordinates)) {
+                            for (const c of step.geometry.coordinates) {
+                                const lon = Number(c[0]);
+                                const lat = Number(c[1]);
+                                pts.push({ latitude: lat, longitude: lon });
+                            }
+                        }
+                    }
+                }
+            }
+            if (pts.length > 0)
+                coordinates = pts;
+        }
+        // Ensure coordinates are numbers
+        if (coordinates) {
+            coordinates = coordinates.filter(c => Number.isFinite(c.latitude) && Number.isFinite(c.longitude));
+        }
+        return { distanceKm: Number(distanceKm.toFixed(2)), durationMin, coordinates };
     }
     catch (error) {
         throw new Error(`Geoapify routing failed: ${error.message}`);
