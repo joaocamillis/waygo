@@ -124,7 +124,5 @@ EXPO_PUBLIC_API_BASE_URL=http://seu-backend.onrender.com
 
 ## Próximas melhorias
 
-- Implementar deep linking (abrir app com coordenadas)
 - Cache de buscas frequentes
-- Suporte a múltiplas rotas (Uber, 99, inDrive reais)
 - Modo offline com cache local
